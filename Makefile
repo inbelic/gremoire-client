@@ -2,7 +2,7 @@ ODIN=odin
 
 SRC=src
 
-MAIN=$(SRC)/main.odin
+MAIN=main.odin
 ODINCFLAGS=-file -out:build/gremoire
 
 ODIR=build/
