@@ -43,19 +43,19 @@ EchoRequest :: struct {
 StartedRequest :: struct {}
 
 // Game Requests
-DisplayRequest :: struct {}
+DisplayRequest :: struct {
+    cards : card.Cards,
+}
 
 OrderRequest :: struct {
-    size        : u8, // number of triggers to urder
+    size        : u8, // number of triggers to order
     triggers    : [127]AbilityIdx, // maximum is 127 since 254 / 2 = 127
-    order       : [127]u8, // the output of orders that we will respond with
 }
 
 TargetRequest :: struct {
     aIdx        : AbilityIdx, // index of card and ability we need to target
     size        : u8, // number of potential targets
-    targets     : [254]u8,   // maximum number of targets is 254
-    target      : card.CardID, // the output of which card we will target
+    targets     : [254]card.CardID,   // maximum number of targets is 254
 }
 
 ResultRequest :: struct {
@@ -88,7 +88,7 @@ to_lobby_request :: proc(msg : ^Message) -> (req : LobbyRequest) {
 }
 
 to_game_request :: proc(msg : ^Message) -> (req : GameRequest) {
-    switch msg.cmd {
+    switch msg^.cmd {
         case GameCmd.DISPLAY:   req = to_display_request(msg)
         case GameCmd.ORDER:     req = to_order_request(msg)
         case GameCmd.TARGET:    req = to_target_request(msg)
@@ -98,13 +98,83 @@ to_game_request :: proc(msg : ^Message) -> (req : GameRequest) {
 }
 
 to_display_request :: proc(msg : ^Message) -> (req : DisplayRequest) {
+    size := msg^.size
+    buf := &msg^.info
+    buf_idx := u8(0)
+
+    card_pos := u8(0)
+
+    field : card.Field
+    val : u8
+    field_bytes : u8
+    for buf_idx < size {
+        cur_card : card.Card
+
+        // 0 denotes that the CardID is hidden so we store nil
+        cur_card.id = cast(card.CardID)buf[buf_idx]
+        buf_idx += 1
+        // Check the number of bytes that the fields associated with the
+        // current card require (2 * the number fields)
+        field_bytes = buf[buf_idx] + buf_idx
+        buf_idx += 1
+        for buf_idx < field_bytes {
+            field = card.Field(buf[buf_idx])
+            buf_idx += 1
+
+            val = buf[buf_idx]
+            buf_idx += 1
+
+            cur_card.fieldMap[field] = val
+        }
+
+        req.cards[card_pos] = cur_card
+        card_pos += 1
+    }
     return
 }
 
 to_order_request :: proc(msg : ^Message) -> (req : OrderRequest) {
+    size := msg^.size
+    buf := &msg^.info
+    buf_idx := u8(0)
+
+    cardID      : card.CardID
+    abilityID   : card.AbilityID
+    order_pos := u8(0)
+
+    for buf_idx < size {
+        cardID = card.CardID(buf[buf_idx])
+        buf_idx += 1
+        abilityID = card.AbilityID(buf[buf_idx])
+        buf_idx += 1
+
+        req.triggers[order_pos] = AbilityIdx{cardID, abilityID}
+        order_pos += 1
+    }
+    req.size = order_pos
     return
 }
 
 to_target_request :: proc(msg : ^Message) -> (req : TargetRequest) {
+    size := msg^.size
+    buf := &msg^.info
+    buf_idx := u8(0)
+
+    cardID :=  card.CardID(buf[buf_idx])
+    buf_idx += 1
+    abilityID := card.AbilityID(buf[buf_idx])
+    buf_idx += 1
+
+    req.aIdx = AbilityIdx{cardID, abilityID}
+    target_pos := u8(0)
+    
+    for buf_idx < size {
+        cardID = card.CardID(buf[buf_idx])
+        buf_idx += 1
+        req.targets = cardID
+    }
+
+    req.size = buf_idx - 2
+
     return
 }

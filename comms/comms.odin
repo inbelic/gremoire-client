@@ -191,7 +191,7 @@ mailman :: proc(ptr : rawptr) {
         // hasn't retreived it should be fine in our context
         mailbox^.msg = msg
         mailbox^.notif = true
-        fmt.println(mailbox^)
+        fmt.println(to_request(&mailbox^.msg))
     }
 
     return
