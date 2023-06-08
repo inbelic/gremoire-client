@@ -116,7 +116,11 @@ to_display_request :: proc(msg : ^Message) -> (req : DisplayRequest, ok : bool) 
     field           : card.Field
     val             : u8
     field_bytes     : u8
+
     ability_bytes   : u8
+    abilityID       : card.AbilityID
+    statementID     : card.StatementID
+
     for buf_idx < size {
         cur_card : card.Card
 
@@ -125,7 +129,7 @@ to_display_request :: proc(msg : ^Message) -> (req : DisplayRequest, ok : bool) 
             return 
         }
         // 0 denotes that the CardID is hidden so we store nil
-        cur_card.id = cast(card.CardID)buf[buf_idx]
+        cur_card.id = card.CardID(buf[buf_idx])
         buf_idx += 1
         // Check the number of bytes that the fields associated with the
         // current card require (2 * the number fields)
@@ -156,8 +160,12 @@ to_display_request :: proc(msg : ^Message) -> (req : DisplayRequest, ok : bool) 
         // Could probably use append here instead but will keep it consistent
         // with the rest of the implementation
         for buf_idx < ability_bytes {
-            append(&cur_card.abilities, card.AbilityID(buf[buf_idx]))
+            abilityID = card.AbilityID(buf[buf_idx])
             buf_idx += 1
+            statementID = card.StatementID(buf[buf_idx])
+            buf_idx += 1
+
+            cur_card.abilities[abilityID] = statementID
         }
 
         req.cards[card_pos] = cur_card
