@@ -9,13 +9,13 @@ Cards       :: [256]Card
 
 // Corresponding to Core.Fields of the game instance
 Field :: enum u8 {
-    Revealed,               // Flags
-    Zone, Phase,            // Enums
-    SetID, CardNum, Owner,  // U8
+    Revealed, ActiveFlag, AttackFlag,   // Flags
+    Zone, Phase,                        // Enums
+    SetID, CardNum, Owner, Position,    // U8
 }
 
 Card :: struct {
     id : CardID,    // 0 denotes that the card is hidden and is NOT the card id
     fieldMap : map[Field]u8,
-    abilities : map[AbilityID]StatementID
+    abilities : map[AbilityID]StatementID,
 }

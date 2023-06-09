@@ -61,7 +61,7 @@ main :: proc() {
         msg.size = u8(bytes_read - 2)
 
         for i in 0..<msg.size {
-            msg.info[i] = input[i + 1]
+            msg.info[i] = u8(input[i + 1] - 48)
         }
 
         comm_err = comms.send_message(send_socket, msg)

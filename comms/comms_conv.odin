@@ -37,6 +37,7 @@ ValidityRequest :: struct {
     valid : bool,
 }
 EchoRequest :: struct {
+    size : u8,
     contents : [254]u8,
 }
 
@@ -78,7 +79,7 @@ to_general_request :: proc(msg : ^Message) -> (req : GeneralRequest, ok : bool) 
     switch msg^.cmd {
         case GeneralCmd.OK:        req = ValidityRequest{true}
         case GeneralCmd.INVALID:   req = ValidityRequest{false}
-        case GeneralCmd.ECHO:      req = EchoRequest{msg^.info} // Copy info for now...
+        case GeneralCmd.ECHO:      req = EchoRequest{msg^.size, msg^.info}
     }
     ok = true
     return
@@ -185,7 +186,7 @@ to_order_request :: proc(msg : ^Message) -> (req : OrderRequest, ok : bool) {
     order_pos := u8(0)
 
     for buf_idx < size {
-        if (size < buf_idx + 3) {
+        if (size < buf_idx + 2) {
             ok = false
             return 
         }
