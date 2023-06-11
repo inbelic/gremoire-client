@@ -1,8 +1,14 @@
 package main
 
 import fmt "core:fmt"
+
 import comms "comms"
-import os "core:os"
+import term "terminal"
+
+
+ui_main :: proc(socket : ^comms.SendSocket, mailbox : ^comms.MailBox) {
+        fmt.println("not debug mode")
+}
 
 main :: proc() {
     // Initialzie communications
@@ -29,50 +35,11 @@ main :: proc() {
     mail_man := comms.employ_mailman(data)
     defer comms.unemploy_mailman(mail_man)
 
-    // Sending declrations
-    hdl_err     : os.Errno
-    input       : [255]u8
-    bytes_read  : int
-    msg         : comms.Message
-
-    // Login
-    fmt.print("username: ")
-    bytes_read, hdl_err = os.read(os.stdin, input[:])
-    
-    msg.cmd = comms.LobbyCmd.LOGIN
-    msg.size = u8(bytes_read - 1)
-    for i in 0..<msg.size {
-        msg.info[i] = input[i]
-    }
-    comm_err = comms.send_message(send_socket, msg)
-    if comm_err != nil {
-        fmt.println("err send:", comm_err)
-        return
-    }
-
-    // Main Interactive Loop
+        // Main Interactive Loop
     when #config(DEBUG, false) {
-        for {
-            bytes_read, hdl_err = os.read(os.stdin, input[:])
-            if bytes_read <= 1 { // 1 accounts for newlien
-                break
-            }
-
-            msg.cmd = comms.u8_to_cmd(input[0] - 48)
-            msg.size = u8(bytes_read - 2)
-
-            for i in 0..<msg.size {
-                msg.info[i] = u8(input[i + 1] - 48)
-            }
-
-            comm_err = comms.send_message(send_socket, msg)
-            if comm_err != nil {
-                fmt.println("err send:", comm_err)
-                return
-            }
-        }
+        term.debug_main(send_socket)
     } else {
-        fmt.println("not debug mode")
+        ui_main(send_socket, mailbox)
     }
     return
 }

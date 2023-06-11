@@ -191,11 +191,8 @@ mailman :: proc(ptr : rawptr) {
         // hasn't retreived it should be fine in our context
         mailbox^.msg = msg
         mailbox^.notif = true
-        req, ok := to_request(&mailbox^.msg)
-        if ok {
+        when #config(DEBUG, false) {
             fmt.println(msg.cmd, msg.info[:msg.size])
-        } else {
-            fmt.println("bad request")
         }
     }
 
