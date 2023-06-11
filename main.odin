@@ -5,6 +5,7 @@ import fmt "core:fmt"
 import comms "comms"
 import term "terminal"
 
+DEBUG :: #config(DEBUG, false)
 
 ui_main :: proc(socket : ^comms.SendSocket, mailbox : ^comms.MailBox) {
         fmt.println("not debug mode")
@@ -36,7 +37,7 @@ main :: proc() {
     defer comms.unemploy_mailman(mail_man)
 
         // Main Interactive Loop
-    when #config(DEBUG, false) {
+    when DEBUG {
         term.debug_main(send_socket)
     } else {
         ui_main(send_socket, mailbox)

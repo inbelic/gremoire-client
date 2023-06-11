@@ -8,6 +8,8 @@ import net "core:net"
 import thread "core:thread"
 import sync "core:sync"
 
+DEBUG :: #config(DEBUG, false)
+
 // Socket that we will only use to listen and recv from
 RecvSocket :: distinct net.TCP_Socket
 
@@ -191,7 +193,7 @@ mailman :: proc(ptr : rawptr) {
         // hasn't retreived it should be fine in our context
         mailbox^.msg = msg
         mailbox^.notif = true
-        when #config(DEBUG, false) {
+        when DEBUG {
             fmt.println(msg.cmd, msg.info[:msg.size])
         }
     }
