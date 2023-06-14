@@ -4,12 +4,9 @@ import fmt "core:fmt"
 
 import comms "comms"
 import term "terminal"
+import ui "ui"
 
 DEBUG :: #config(DEBUG, false)
-
-ui_main :: proc(socket : ^comms.SendSocket, mailbox : ^comms.MailBox) {
-        fmt.println("not debug mode")
-}
 
 main :: proc() {
     // Initialzie communications
@@ -40,7 +37,7 @@ main :: proc() {
     when DEBUG {
         term.debug_main(send_socket)
     } else {
-        ui_main(send_socket, mailbox)
+        ui.ui_main(send_socket, mailbox)
     }
     return
 }

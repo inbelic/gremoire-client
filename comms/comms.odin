@@ -214,7 +214,8 @@ unemploy_mailman :: proc(th : ^MailMan) {
     thread.destroy(th)
 }
 
-check_mailbox :: proc(mailbox : ^MailBox, lock : ^MailLock) -> (msg : Maybe(Message)) {
+check_mailbox :: proc(mailbox : ^MailBox) -> (msg : Maybe(Message)) {
+    lock := mailbox^.lock
     if sync.atomic_mutex_try_lock(lock) { // No need to block, just check on the next frame
         defer sync.atomic_mutex_unlock(lock)
 
