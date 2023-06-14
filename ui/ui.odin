@@ -2,6 +2,7 @@ package ui
 
 import fmt "core:fmt"
 import "core:c/libc"
+import slc "core:slice"
 
 import SDL "vendor:sdl2"
 import mu "vendor:microui"
@@ -28,12 +29,14 @@ state := struct {
 
 
 ui_main :: proc(socket : ^comms.SendSocket, mailbox : ^comms.MailBox) {
-    // Output comms declarations
+	// State initializations
+	state.socket = socket
+	state.mailbox = mailbox
+
+    // Incomings comms declarations
     in_msg      : comms.Message
     recvd       : bool
 	
-	state.socket = socket
-
     // Test Login
     state.msg.cmd = comms.LobbyCmd.LOGIN
     state.msg.size = 4
@@ -58,8 +61,6 @@ ui_main :: proc(socket : ^comms.SendSocket, mailbox : ^comms.MailBox) {
     if state.comm_err != nil {
         fmt.println("bad queue:", state.comm_err)
     }
-
-	state.mailbox = mailbox
     
     if err := SDL.Init({.VIDEO}); err != 0 {
 		fmt.eprintln(err)
@@ -162,13 +163,19 @@ ui_main :: proc(socket : ^comms.SendSocket, mailbox : ^comms.MailBox) {
 				}
 			}
 		}
-        
         // Checking mailbox
         in_msg, recvd = comms.check_mailbox(mailbox).?
         if recvd {
             game.reload_game_ctx(&in_msg, &state.game_ctx)
 			fmt.println("got message")
         }
+
+		if state.game_ctx.cmd_active && state.game_ctx.cur_cmd == comms.GameCmd.DISPLAY {
+			state.msg.cmd = comms.GameCmd.DISPLAY
+			state.msg.size = 0
+			state.comm_err = comms.send_message(state.socket, state.msg)
+			state.game_ctx.cmd_active = false
+		}
 
 		mu.begin(ctx)
 		all_windows(ctx, &state.game_ctx)
@@ -263,26 +270,51 @@ all_windows :: proc(ctx: ^mu.Context, game_ctx: ^game.GameCtx) {
 		}
 	}
 
-	if mu.window(ctx, "Inputs", {0, 0, 400, 400}) {
-		mu.layout_row(ctx, {-1})
-		switch game_ctx.cur_cmd {
-			case comms.GameCmd.DISPLAY: {
-				if .SUBMIT in mu.button(ctx, "Ok") {
-					fmt.println("sending")
-					state.msg.cmd = comms.GameCmd.DISPLAY
-					state.msg.size = 0
-					state.comm_err = comms.send_message(state.socket, state.msg)
+	if game_ctx.cmd_active {
+		if mu.window(ctx, "Inputs", {0, 0, 400, 400}) {
+			// Don't deal with DISPLAY as it is dealt with automatically
+			#partial switch game_ctx.cur_cmd {
+				case comms.GameCmd.ORDER: {
+					order_ctx := &game_ctx^.order_ctx
+					num_orders := order_ctx.num_orders
+					trg : game.AbilityIdx
+					place : u8
+					mu.layout_row(ctx, {-1})
+					for i in 0..<order_ctx.num_triggers {
+						trg = order_ctx.triggers[i]
+						aID := fmt.tprint(trg.cID, ":", trg.aID)
+						place = i + 1
+						ordering, found := slc.linear_search(order_ctx.out_order[:], place)
+						if .CHANGE in mu.checkbox(ctx, aID, &found) {
+							if !found {
+								// We are unordering it from the list
+								slc.rotate_left(order_ctx.out_order[ordering:num_orders], 1)
+								num_orders -= 1
+							} else {
+								// Just place it at the end of the orders
+								order_ctx.out_order[num_orders] = place
+								num_orders += 1
+							}
+						}
+					}
+					mu.label(ctx, fmt.tprint(order_ctx.out_order[:num_orders]))
+					order_ctx.num_orders = num_orders
+					if order_ctx.num_triggers == num_orders {
+						if .SUBMIT in mu.button(ctx, "Ok") {
+							mu.layout_row(ctx, {-1})
+							state.msg.cmd = comms.GameCmd.ORDER
+							state.msg.size = num_orders
+							for x, i in order_ctx.out_order[:num_orders] {
+								state.msg.info[i] = x
+							}
+							state.comm_err = comms.send_message(state.socket, state.msg)
+							game_ctx.cmd_active = false
+						}
+					}
 				}
+				case comms.GameCmd.TARGET:
+				case comms.GameCmd.RESULT:
 			}
-			case comms.GameCmd.ORDER:
-			case comms.GameCmd.TARGET:
-			case comms.GameCmd.RESULT:
 		}
 	}
-}
-
-scale :: 2
-
-text_height :: proc(font: mu.Font) -> i32 {
-	return scale * mu.default_atlas_text_height(font)
 }

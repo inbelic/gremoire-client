@@ -34,6 +34,7 @@ Card :: struct {
 
 GameCtx :: struct {
     cur_cmd     : comms.GameCmd,
+    cmd_active  : bool,
     display_ctx : DisplayCtx,
     order_ctx   : OrderCtx,
     target_ctx  : TargetCtx,
@@ -47,9 +48,9 @@ DisplayCtx :: struct {
 
 OrderCtx :: struct {
     num_triggers : u8,
-    triggers     : [256]AbilityIdx,
+    triggers     : [128]AbilityIdx,
     num_orders   : u8,
-    out_order    : [256]u8,
+    out_order    : [128]u8,
 }
 
 TargetCtx :: struct {
@@ -69,6 +70,7 @@ reload_game_ctx :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) {
         case comms.GeneralCmd:
         case comms.LobbyCmd:
     }
+    game_ctx^.cmd_active = true
     return
 }
 
