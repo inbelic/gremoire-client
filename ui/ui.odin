@@ -241,18 +241,6 @@ render :: proc(ctx: ^mu.Context, renderer: ^SDL.Renderer) {
 	SDL.RenderPresent(renderer)
 }
 
-
-u8_slider :: proc(ctx: ^mu.Context, val: ^u8, lo, hi: u8) -> (res: mu.Result_Set) {
-	mu.push_id(ctx, uintptr(val))
-
-	@static tmp: mu.Real
-	tmp = mu.Real(val^)
-	res = mu.slider(ctx, &tmp, mu.Real(lo), mu.Real(hi), 0, "%.0f", {.ALIGN_CENTER})
-	val^ = u8(tmp)
-	mu.pop_id(ctx)
-	return
-}
-
 all_windows :: proc(ctx: ^mu.Context, game_ctx: ^game.GameCtx) {
 	@static opts := mu.Options{.NO_CLOSE}
 
@@ -280,13 +268,14 @@ all_windows :: proc(ctx: ^mu.Context, game_ctx: ^game.GameCtx) {
 					trg : game.AbilityIdx
 					place : u8
 					mu.layout_row(ctx, {-1})
+					@static checks : [128]bool
 					for i in 0..<order_ctx.num_triggers {
 						trg = order_ctx.triggers[i]
-						aID := fmt.tprint(trg.cID, ":", trg.aID)
 						place = i + 1
-						ordering, found := slc.linear_search(order_ctx.out_order[:], place)
-						if .CHANGE in mu.checkbox(ctx, aID, &found) {
-							if !found {
+						aID := fmt.tprint(place, "(", trg.cID, ":", trg.aID, ")")
+						ordering, placed := slc.linear_search(order_ctx.out_order[:num_orders], place)
+						if .CHANGE in mu.checkbox(ctx, aID, &checks[i]) {
+							if placed {
 								// We are unordering it from the list
 								slc.rotate_left(order_ctx.out_order[ordering:num_orders], 1)
 								num_orders -= 1
@@ -299,7 +288,7 @@ all_windows :: proc(ctx: ^mu.Context, game_ctx: ^game.GameCtx) {
 					}
 					mu.label(ctx, fmt.tprint(order_ctx.out_order[:num_orders]))
 					order_ctx.num_orders = num_orders
-					if order_ctx.num_triggers == num_orders {
+					if 0 < num_orders && order_ctx.num_triggers == num_orders {
 						if .SUBMIT in mu.button(ctx, "Ok") {
 							mu.layout_row(ctx, {-1})
 							state.msg.cmd = comms.GameCmd.ORDER
@@ -312,7 +301,43 @@ all_windows :: proc(ctx: ^mu.Context, game_ctx: ^game.GameCtx) {
 						}
 					}
 				}
-				case comms.GameCmd.TARGET:
+				case comms.GameCmd.TARGET: {
+					target_ctx := &game_ctx^.target_ctx
+					num_targets := target_ctx.num_targets
+					mu.layout_row(ctx, {-1})
+					mu.label(ctx, fmt.tprint("Target:", target_ctx.trigger))
+					@static targeted_cID : game.CardID
+					@static checks : [256]bool
+					@static selected : bool
+					for i in 0..<num_targets {
+						cID := fmt.tprint(target_ctx.targets[i])
+						if .CHANGE in mu.checkbox(ctx, cID, &checks[i]) {
+							if checks[i] {
+								// We turn all others off
+								for j in 0..<num_targets {
+									checks[j] = false
+								}
+								checks[i] = true
+								selected = true
+								targeted_cID = target_ctx.targets[i]
+							} else {
+								checks[i] = false
+								selected = false
+							}
+						}
+					}
+					if selected {
+						if .SUBMIT in mu.button(ctx, "Ok") {
+							selected = false
+							mu.layout_row(ctx, {-1})
+							state.msg.cmd = comms.GameCmd.TARGET
+							state.msg.size = 1
+							state.msg.info[0] = u8(targeted_cID)
+							state.comm_err = comms.send_message(state.socket, state.msg)
+							game_ctx.cmd_active = false
+						}
+					}
+				}
 				case comms.GameCmd.RESULT:
 			}
 		}
