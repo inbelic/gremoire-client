@@ -7,11 +7,14 @@ ODINCFLAGS=-file -out:build/gremoire
 
 ODIR=build/
 
-run:
+run: build
 	$(ODIN) run $(MAIN) $(ODINCFLAGS)
 
-build:
+build: assets
 	$(ODIN) build $(MAIN) $(ODINCFLAGS)
+	
+assets: assets.zip
+	unzip -qo -d build/assets assets.zip
 
 debug: ODINCFLAGS += -define:DEBUG=true
 debug: build

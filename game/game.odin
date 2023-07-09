@@ -32,50 +32,43 @@ Card :: struct {
     abilities : map[AbilityID]StatementID,
 }
 
-GameCtx :: struct {
+GameContext :: struct {
     cur_cmd     : comms.GameCmd,
     cmd_active  : bool,
-    display_ctx : DisplayCtx,
-    order_ctx   : OrderCtx,
-    target_ctx  : TargetCtx,
-}
-
-DisplayCtx :: struct {
+    loaded      : bool,
     num_cards   : u8,
     card_state  : Cards,
-    responded   : bool,
+    order_ctx   : OrderContext,
+    target_ctx  : TargetContext,
 }
 
-OrderCtx :: struct {
+OrderContext :: struct {
     num_triggers : u8,
     triggers     : [128]AbilityIdx,
-    num_orders   : u8,
-    out_order    : [128]u8,
 }
 
-TargetCtx :: struct {
+TargetContext :: struct {
     trigger     : AbilityIdx,
     num_targets : u8,
     targets     : [256]CardID,
-    targeted    : bool,
-    targetCID   : CardID,
 }
 
-reload_game_ctx :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) {
-    switch v in msg^.cmd {
+reload_game_ctx :: proc(msg : ^comms.Message, game_ctx : ^GameContext) {
+    switch v in msg.cmd {
         case comms.GameCmd: {
             reload_game_cmd(msg, game_ctx)
-            game_ctx^.cur_cmd = comms.GameCmd(v)
+            game_ctx.cur_cmd = comms.GameCmd(v)
         }
         case comms.GeneralCmd:
         case comms.LobbyCmd:
     }
-    game_ctx^.cmd_active = true
+    game_ctx.cmd_active = true
+    game_ctx.loaded = false
     return
 }
 
-reload_game_cmd :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) {
-    switch msg^.cmd {
+reload_game_cmd :: proc(msg : ^comms.Message, game_ctx : ^GameContext) {
+    switch msg.cmd {
         case comms.GameCmd.DISPLAY: reload_display(msg, game_ctx)
         case comms.GameCmd.ORDER: reload_order(msg, game_ctx)
         case comms.GameCmd.TARGET: reload_target(msg, game_ctx)
@@ -83,9 +76,9 @@ reload_game_cmd :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) {
     return
 }
 
-reload_display :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) {
-    size    := msg^.size
-    buf     := &msg^.info
+reload_display :: proc(msg : ^comms.Message, game_ctx : ^GameContext) {
+    size    := msg.size
+    buf     := &msg.info
     buf_idx := u8(0)
 
     card_pos := u8(0)
@@ -142,17 +135,16 @@ reload_display :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) {
             cur_card.abilities[abilityID] = statementID
         }
 
-        game_ctx^.display_ctx.card_state[card_pos] = cur_card
+        game_ctx.card_state[card_pos] = cur_card
         card_pos += 1
     }
-    game_ctx^.display_ctx.num_cards = card_pos
-    game_ctx^.display_ctx.responded = false
+    game_ctx.num_cards = card_pos
     return
 }
 
-reload_order :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) -> (ok : bool) {
-    size := msg^.size
-    buf := &msg^.info
+reload_order :: proc(msg : ^comms.Message, game_ctx : ^GameContext) -> (ok : bool) {
+    size := msg.size
+    buf := &msg.info
     buf_idx := u8(0)
 
     cardID      : CardID
@@ -168,17 +160,17 @@ reload_order :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) -> (ok : bool) {
         abilityID = AbilityID(buf[buf_idx])
         buf_idx += 1
 
-        game_ctx^.order_ctx.triggers[order_pos] = AbilityIdx{cardID, abilityID}
+        game_ctx.order_ctx.triggers[order_pos] = AbilityIdx{cardID, abilityID}
         order_pos += 1
     }
-    game_ctx^.order_ctx.num_triggers = order_pos
+    game_ctx.order_ctx.num_triggers = order_pos
     ok = true
     return
 }
 
-reload_target :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) -> (ok : bool) {
-    size := msg^.size
-    buf := &msg^.info
+reload_target :: proc(msg : ^comms.Message, game_ctx : ^GameContext) -> (ok : bool) {
+    size := msg.size
+    buf := &msg.info
     buf_idx := u8(0)
 
     if (size < buf_idx + 2) {
@@ -190,17 +182,16 @@ reload_target :: proc(msg : ^comms.Message, game_ctx : ^GameCtx) -> (ok : bool) 
     abilityID := AbilityID(buf[buf_idx])
     buf_idx += 1
 
-    game_ctx^.target_ctx.trigger = AbilityIdx{cardID, abilityID}
+    game_ctx.target_ctx.trigger = AbilityIdx{cardID, abilityID}
     target_pos := u8(0)
     
     for buf_idx < size {
         cardID = CardID(buf[buf_idx])
         buf_idx += 1
-        game_ctx^.target_ctx.targets[target_pos] = cardID
+        game_ctx.target_ctx.targets[target_pos] = cardID
         target_pos += 1
     }
-    game_ctx^.target_ctx.num_targets = target_pos
-    game_ctx^.target_ctx.targeted = false
+    game_ctx.target_ctx.num_targets = target_pos
 
     ok = true
     return
