@@ -8,10 +8,10 @@ ODINCFLAGS=-file -out:build/gremoire
 ODIR=build/
 
 run: build
-	$(ODIN) run $(MAIN) $(ODINCFLAGS)
+	$(ODIN) run . $(ODINCFLAGS)
 
 build: assets
-	$(ODIN) build $(MAIN) $(ODINCFLAGS)
+	$(ODIN) build . $(ODINCFLAGS)
 	
 assets: assets.zip
 	unzip -qo -d build/assets assets.zip
