@@ -14,6 +14,12 @@ Field :: enum u8 {
     Power, Toughness,                   // U8
 }
 
+Zone :: enum u8 {
+    Hand, TopDeck, MidDeck, BotDeck,
+    Stack, Throne, Barrack, Battlefield,
+    Cemetery,
+}
+
 // Defines the various components of a card on the client side
 CardID :: distinct u8
 AbilityID :: distinct u8
@@ -21,7 +27,7 @@ StatementID :: distinct u8
 
 CardData :: struct {
     id: CardID,    // 0 denotes that the card is hidden and is NOT the card id
-    fieldMap: map[Field]u8,
+    field_map: map[Field]u8,
     abilities: map[AbilityID]StatementID,
 }
 
@@ -37,6 +43,8 @@ Trigger :: struct {
 }
 
 GameContext :: struct {
+    player_id: u8,
+
     cur_cmd: GameCmd,
     cmd_active: bool,
 
@@ -87,7 +95,7 @@ reload_cards :: proc(game_ctx: ^GameContext, card_ids: ^[dynamic]CardID) {
     defer delete(new_cards)
 
     for card in game_ctx.cards {
-        cur_id := card.card_id
+        cur_id := card.id
         index, found := s.linear_search(card_ids[:], cur_id)
         if found {
             unordered_remove(card_ids, index)
@@ -106,8 +114,11 @@ reload_cards :: proc(game_ctx: ^GameContext, card_ids: ^[dynamic]CardID) {
 reload_display :: proc(msg : ^Message, game_ctx: ^GameContext) {
     size := msg.size
     buf := &msg.info
-    buf_idx := u8(0)
-
+    if size < 1 {
+        return
+    }
+    game_ctx.player_id = buf[0]
+    buf_idx := u8(1)
 
     field: Field
     val: u8
@@ -149,7 +160,7 @@ reload_display :: proc(msg : ^Message, game_ctx: ^GameContext) {
             val = buf[buf_idx]
             buf_idx += 1
 
-            cur_card.fieldMap[field] = val
+            cur_card.field_map[field] = val
         }
 
         ability_bytes = buf[buf_idx] + buf_idx + 1

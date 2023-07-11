@@ -11,7 +11,6 @@ UpdateInfo :: struct {
     response_ready: bool,
 }
 
-
 fill_mouse :: proc(mouse_info: ^MouseInfo) {
     mouse_info.posn = rl.GetMousePosition()
     mouse_info.pressed = rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
@@ -35,30 +34,32 @@ update_card :: proc(info: ^UpdateInfo, card: ^Card) {
     if info.mouse.pressed {
         if hovering && !info.mouse.has_card {
             info.mouse.has_card = true
-            info.mouse.cur_card = card.card_id
-            if s.contains(target_ctx.target_ids[:], card.card_id) {
+            info.mouse.cur_card = card.id
+            if s.contains(target_ctx.target_ids[:], card.id) {
                 target_ctx.targeted = true
-                target_ctx.target = card.card_id
+                target_ctx.target = card.id
             }
-        } else if info.mouse.has_card && info.mouse.cur_card == card.card_id {
+        } else if info.mouse.has_card && info.mouse.cur_card == card.id {
             info.mouse.has_card = false
         }
     }
 
     // Dragging a card around
-    if info.mouse.has_card && info.mouse.cur_card == card.card_id {
+    if info.mouse.has_card && info.mouse.cur_card == card.id {
         card.dest = info.mouse.posn
+    } else {
+        card.dest = get_zone_dest(info.game.card_state, card.id, info.game.player_id)
     }
     card.posn = card.posn + 4*(card.dest - card.posn) * rl.GetFrameTime()
 
     // Update card scale
     if hovering && !info.mouse.has_card && info.mouse.top_card == 0 {
         card.scale = min(card.scale + 0.002, 1.5)
-        info.mouse.top_card = card.card_id
+        info.mouse.top_card = card.id
     } else {
         card.scale = max(card.scale - 0.002, 1)
     }
-    if info.mouse.has_card && info.mouse.cur_card == card.card_id {
+    if info.mouse.has_card && info.mouse.cur_card == card.id {
         card.scale = 1.5
     }
 }
@@ -97,4 +98,40 @@ fill_info :: proc(info: ^UpdateInfo) {
             }
         }
     }
+}
+
+// Determine the (resting) destination of a card based on its zone
+get_zone_dest :: proc(state: [dynamic]CardData, id: CardID, player_id: u8) -> (posn: rl.Vector2) {
+    handBase :: rl.Vector2{ f32(screenWidth) / 4, f32(screenHeight) - 135 }
+    stackBase :: rl.Vector2{ f32(screenWidth) / 4, f32(screenHeight) - 135 }
+    throneBase :: rl.Vector2{ 128, f32(screenHeight) - 128 }
+    barrackBase :: rl.Vector2{ f32(screenWidth) / 4, f32(screenHeight) / 4 }
+    battleBase :: rl.Vector2{ f32(screenWidth) / 4, f32(screenHeight) / 2 }
+    posn = rl.Vector2{-129, -129}
+    for card_data in state {
+        if card_data.id == id {
+            zone, zone_exists := card_data.field_map[Field.Zone]
+            if zone_exists {
+                #partial switch Zone(zone) {
+                    case Zone.Hand: posn = handBase
+                    case Zone.Stack: posn = stackBase
+                    case Zone.Throne: posn = throneBase
+                    case Zone.Barrack: posn = barrackBase
+                    case Zone.Battlefield: posn = battleBase
+                }
+            }
+            zone_posn, zone_posn_exists := card_data.field_map[Field.Position]
+            if zone_posn_exists {
+                posn += rl.Vector2{260 * f32(zone_posn), 0}
+            }
+            owner, owner_exists := card_data.field_map[Field.Owner]
+            if owner_exists {
+                if owner != player_id {
+                    posn.y = f32(screenHeight) - posn.y
+                }
+            }
+            break
+        }
+    }
+    return posn
 }

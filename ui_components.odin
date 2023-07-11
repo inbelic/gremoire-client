@@ -40,7 +40,7 @@ draw_button :: proc(info: ^DrawInfo, button: Button) {
 
 // Card component
 Card :: struct {
-    card_id: CardID,
+    id: CardID,
     posn: rl.Vector2,   // Origin is set to be the center of the image
     scale: f32,         // 1 is 256x256 pixels
 
@@ -70,7 +70,7 @@ card_source :: proc(card_id: CardID) -> rl.Rectangle {
 draw_card :: proc(info: ^DrawInfo, card: Card) {
     @static frame_source := rl.Rectangle{0, 0, 256, 256}
 
-    card_source := card_source(card.card_id)
+    card_source := card_source(card.id)
     posn_rect := card_bounds(card)
 	rl.DrawTexturePro(info.cards, card_source, posn_rect, rl.Vector2{0, 0}, 0, rl.WHITE)
 	rl.DrawTexturePro(info.cards, frame_source, posn_rect, rl.Vector2{0, 0}, 0, rl.WHITE)

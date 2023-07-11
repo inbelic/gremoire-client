@@ -133,7 +133,7 @@ main :: proc() {
 
         // Update card update/draw ordering
         for card, i in game.cards {
-            if card.card_id == state.update_info.mouse.top_card {
+            if card.id == state.update_info.mouse.top_card {
                 s.swap(game.cards[:], 0, i)
                 break
             }
