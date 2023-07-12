@@ -4,8 +4,10 @@ import rl "vendor:raylib"
 
 // Genernal DrawInfo for draw_* functions
 DrawInfo :: struct {
-    cards : rl.Texture,
+    cards : [dynamic]rl.Texture,
     buttons: rl.Texture,
+
+    card_state: ^[dynamic]CardData,
 }
 
 // Mouse components
@@ -60,20 +62,28 @@ card_unscaled_bounds :: proc(card: Card) -> rl.Rectangle {
     return rl.Rectangle{card.posn.x - 128, card.posn.y - 128, 256, 256}
 }
 
-card_source :: proc(card_id: CardID) -> rl.Rectangle {
-    txtr_id := int(card_id)
+card_source :: proc(card_num: u8) -> rl.Rectangle {
+    txtr_id := int(card_num)
     txtr_x := txtr_id % 8
     txtr_y := txtr_id / 8
     return rl.Rectangle{f32(txtr_x) * 256, f32(txtr_y) * 0, 256, 256}
 }
 
 draw_card :: proc(info: ^DrawInfo, card: Card) {
-    @static frame_source := rl.Rectangle{0, 0, 256, 256}
+    frame_source :: rl.Rectangle{0, 0, 256, 256}
 
-    card_source := card_source(card.id)
+    card_data, ok := get_card_data(card.id, info.card_state^)
+    if !ok {
+        return
+    }
+    set_id := get_field(Field.SetID, 0, card_data)
+    card_num := get_field(Field.CardNum, 0, card_data)
+    card_source := card_source(card_num)
     posn_rect := card_bounds(card)
-	rl.DrawTexturePro(info.cards, card_source, posn_rect, rl.Vector2{0, 0}, 0, rl.WHITE)
-	rl.DrawTexturePro(info.cards, frame_source, posn_rect, rl.Vector2{0, 0}, 0, rl.WHITE)
+	rl.DrawTexturePro(info.cards[set_id], card_source, posn_rect,
+                      rl.Vector2{0, 0}, 0, rl.WHITE)
+	rl.DrawTexturePro(info.cards[0], frame_source, posn_rect,
+                      rl.Vector2{0, 0}, 0, rl.WHITE)
 }
 
 // Trigger components
@@ -104,9 +114,8 @@ get_next_order :: proc(triggers: ^[dynamic]Trigger, ordered: bool) -> u8 {
     return posn
 }
 
-trigger_source :: proc(trigger: Trigger) -> rl.Rectangle {
-    card_id := trigger.card_id
-    rect := card_source(card_id)
+trigger_source :: proc(card_num: u8) -> rl.Rectangle {
+    rect := card_source(card_num)
     rect.width /= 2
     rect.height /= 2
     rect.x += rect.width / 2
@@ -117,9 +126,15 @@ trigger_source :: proc(trigger: Trigger) -> rl.Rectangle {
 draw_trigger :: proc(info: ^DrawInfo, trigger: Trigger) {
     bounds := trigger_bounds(trigger)
     posn := rl.Vector2{ bounds.x, bounds.y}
-    trigger_source := trigger_source(trigger)
+    card_data, ok := get_card_data(trigger.card_id, info.card_state^)
+    if !ok {
+        return
+    }
+    set_id := get_field(Field.SetID, 0, card_data)
+    card_num := get_field(Field.CardNum, 0, card_data)
+    trigger_source := trigger_source(card_num)
     posn_rect := rl.Rectangle{posn.x, posn.y,
                               trigger_source.width, trigger_source.height}
-	rl.DrawTexturePro(info.cards, trigger_source, posn_rect, rl.Vector2{0,0},
-                      0, rl.GRAY)
+	rl.DrawTexturePro(info.cards[set_id], trigger_source, posn_rect,
+                      rl.Vector2{0,0}, 0, rl.GRAY)
 }

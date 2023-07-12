@@ -31,6 +31,23 @@ CardData :: struct {
     abilities: map[AbilityID]StatementID,
 }
 
+get_field :: proc(field: Field, default: u8, card_data: CardData) -> u8 {
+    val, exists := card_data.field_map[field]
+    if exists {
+        return val
+    }
+    return default
+}
+
+get_card_data :: proc(id: CardID, state: [dynamic]CardData) -> (CardData, bool) {
+    for card_data in state {
+        if card_data.id == id {
+            return card_data, true
+        }
+    }
+    return CardData{}, false
+}
+
 // A CardHead is used to visually denote the order of a cards ability when
 // ordering triggered abilities
 Trigger :: struct {
@@ -140,9 +157,6 @@ reload_display :: proc(msg : ^Message, game_ctx: ^GameContext) {
         }
         // 0 denotes that the CardID is hidden so we store nil
         cur_card.id = CardID(buf[buf_idx])
-        if cur_card.id != 0 {
-            append(&card_ids, cur_card.id)
-        }
 
         buf_idx += 1
         // Check the number of bytes that the fields associated with the
@@ -180,11 +194,28 @@ reload_display :: proc(msg : ^Message, game_ctx: ^GameContext) {
             cur_card.abilities[abilityID] = statementID
         }
 
+        if is_card_visible(cur_card) {
+            append(&card_ids, cur_card.id)
+        }
         append(&game_ctx.card_state, cur_card)
     }
 
     reload_cards(game_ctx, &card_ids)
     return
+}
+
+// A card being visible means that you can see it in the ui, it does not mean
+// you can see the front side of the card. It may have a CardID of 0 and hence
+// be just the backside
+is_card_visible :: proc(cur_card: CardData) -> bool {
+    zone := Zone(get_field(Field.Zone, 0, cur_card))
+    if !(zone == Zone.TopDeck || zone == Zone.MidDeck || zone == Zone.BotDeck) {
+        return true
+    }
+    if get_field(Field.Revealed, 0, cur_card) == 1 {
+        return true
+    }
+    return false
 }
 
 reload_order :: proc(msg : ^Message, game_ctx : ^GameContext) -> (ok : bool) {

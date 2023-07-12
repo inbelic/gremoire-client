@@ -60,8 +60,15 @@ main :: proc() {
 	state.mailbox = mailbox
 
     // Initilization Custom "globals"
-    cards_txtr := rl.LoadTexture("build/assets/cards.png")
-    defer rl.UnloadTexture(cards_txtr)
+    cards_txtrs: [dynamic]rl.Texture
+    defer {
+        for cards_txtr in cards_txtrs {
+            rl.UnloadTexture(cards_txtr)
+        }
+        delete(cards_txtrs)
+    }
+    base_txtr := rl.LoadTexture("build/assets/base.png")
+    append(&cards_txtrs, base_txtr)
 
     buttons_txtr := rl.LoadTexture("build/assets/buttons.png")
     defer rl.UnloadTexture(buttons_txtr)
@@ -69,8 +76,10 @@ main :: proc() {
     background_txtr := rl.LoadTexture("build/assets/background.png")
     defer rl.UnloadTexture(background_txtr)
 
-    state.draw_info = DrawInfo{ cards_txtr, buttons_txtr }
     state.update_info = UpdateInfo{}
+    game := &state.update_info.game
+
+    state.draw_info = DrawInfo{ cards_txtrs, buttons_txtr, &game.card_state}
 
     ok_button := Button{rl.Rectangle{f32(screenWidth) - 256,
                                      f32(screenHeight) - 71,
@@ -104,9 +113,6 @@ main :: proc() {
         fmt.println("bad queue:", state.comm_err)
     }
 // TEMPORARY END
-
-    // Some helpful references
-    game := &state.update_info.game
 
     // Main Interactive Loop
     for !rl.WindowShouldClose() {
