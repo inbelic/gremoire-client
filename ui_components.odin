@@ -7,7 +7,7 @@ DrawInfo :: struct {
     cards : [dynamic]rl.Texture,
     buttons: rl.Texture,
 
-    card_state: ^[dynamic]CardData,
+    card_state: ^[dynamic]Card,
 }
 
 // Mouse components
@@ -48,6 +48,8 @@ Card :: struct {
 
     // Card movement
     dest: rl.Vector2,
+
+    data: CardData,
 }
 
 card_bounds :: proc(card: Card) -> rl.Rectangle {
@@ -63,7 +65,7 @@ card_unscaled_bounds :: proc(card: Card) -> rl.Rectangle {
 }
 
 card_source :: proc(card_num: u8) -> rl.Rectangle {
-    txtr_id := int(card_num)
+    txtr_id := int(card_num) - 1 // Account for offset of CardID starting at 1
     txtr_x := txtr_id % 8
     txtr_y := txtr_id / 8
     return rl.Rectangle{f32(txtr_x) * 256, f32(txtr_y) * 0, 256, 256}
@@ -72,15 +74,14 @@ card_source :: proc(card_num: u8) -> rl.Rectangle {
 draw_card :: proc(info: ^DrawInfo, card: Card) {
     frame_source :: rl.Rectangle{0, 0, 256, 256}
 
-    card_data, ok := get_card_data(card.id, info.card_state^)
-    if !ok {
-        return
-    }
-    set_id := get_field(Field.SetID, 0, card_data)
-    card_num := get_field(Field.CardNum, 0, card_data)
-    card_source := card_source(card_num)
+    source := rl.Rectangle{256, 0, 256, 256} // Cardback
     posn_rect := card_bounds(card)
-	rl.DrawTexturePro(info.cards[set_id], card_source, posn_rect,
+    set_id := get_field(Field.SetID, 0, card.data)
+    card_num := get_field(Field.CardNum, 0, card.data)
+    if set_id * card_num != 0 {
+        source = card_source(card_num)
+    }
+	rl.DrawTexturePro(info.cards[set_id], source, posn_rect,
                       rl.Vector2{0, 0}, 0, rl.WHITE)
 	rl.DrawTexturePro(info.cards[0], frame_source, posn_rect,
                       rl.Vector2{0, 0}, 0, rl.WHITE)
@@ -88,8 +89,8 @@ draw_card :: proc(info: ^DrawInfo, card: Card) {
 
 // Trigger components
 trigger_bounds :: proc(trigger: Trigger) -> rl.Rectangle {
-    @static orderedPosn     := rl.Vector2{f32(screenWidth) / 4, f32(screenHeight) / 8}
-    @static unorderedPosn   := rl.Vector2{f32(screenWidth) / 4, f32(screenHeight) / 8 + 128}
+    @static orderedPosn     := rl.Vector2{f32(screenWidth) / 4, f32(screenHeight) / 2 - 64}
+    @static unorderedPosn   := rl.Vector2{f32(screenWidth) / 4, f32(screenHeight) / 2 + 64}
 
     bounds := rl.Rectangle{}
     bounds.width = 128
@@ -125,16 +126,15 @@ trigger_source :: proc(card_num: u8) -> rl.Rectangle {
 
 draw_trigger :: proc(info: ^DrawInfo, trigger: Trigger) {
     bounds := trigger_bounds(trigger)
-    posn := rl.Vector2{ bounds.x, bounds.y}
-    card_data, ok := get_card_data(trigger.card_id, info.card_state^)
-    if !ok {
-        return
-    }
+    posn := rl.Vector2{bounds.x, bounds.y}
+
+    source := rl.Rectangle{256 + 64, 64, 128, 128} // Cardback
+    card_data, ok := get_card(trigger.card_id, info.card_state^)
     set_id := get_field(Field.SetID, 0, card_data)
     card_num := get_field(Field.CardNum, 0, card_data)
-    trigger_source := trigger_source(card_num)
-    posn_rect := rl.Rectangle{posn.x, posn.y,
-                              trigger_source.width, trigger_source.height}
-	rl.DrawTexturePro(info.cards[set_id], trigger_source, posn_rect,
-                      rl.Vector2{0,0}, 0, rl.GRAY)
+    if set_id * card_num != 0 {
+        source = trigger_source(card_num)
+    }
+    posn_rect := rl.Rectangle{posn.x, posn.y, source.width, source.height}
+	rl.DrawTexturePro(info.cards[set_id], source, posn_rect, rl.Vector2{0,0}, 0, rl.GRAY)
 }

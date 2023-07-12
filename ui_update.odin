@@ -21,7 +21,7 @@ fill_mouse :: proc(mouse_info: ^MouseInfo) {
 update_button :: proc(info: ^UpdateInfo, button: ^Button) {
     button.hovering = rl.CheckCollisionPointRec(info.mouse.posn, button.posn)
     button.pressed = false
-    if button.hovering && info.mouse.pressed {
+    if button.hovering && info.mouse.pressed && info.response_ready {
         button.pressed = true
     }
 }
@@ -48,7 +48,7 @@ update_card :: proc(info: ^UpdateInfo, card: ^Card) {
     if info.mouse.has_card && info.mouse.cur_card == card.id {
         card.dest = info.mouse.posn
     } else {
-        card.dest = get_zone_dest(info.game.card_state, card.id, info.game.player_id)
+        card.dest = get_zone_dest(card^, info.game.player_id)
     }
     card.posn = card.posn + 4*(card.dest - card.posn) * rl.GetFrameTime()
 
@@ -101,7 +101,7 @@ fill_info :: proc(info: ^UpdateInfo) {
 }
 
 // Determine the (resting) destination of a card based on its zone
-get_zone_dest :: proc(state: [dynamic]CardData, id: CardID, player_id: u8) -> (posn: rl.Vector2) {
+get_zone_dest :: proc(card: Card, player_id: u8) -> (posn: rl.Vector2) {
     sw :: f32(screenWidth)
     sh :: f32(screenHeight)
     handBase :: rl.Vector2{ sw / 4, sh - 135 }
@@ -110,27 +110,24 @@ get_zone_dest :: proc(state: [dynamic]CardData, id: CardID, player_id: u8) -> (p
     barrackBase :: rl.Vector2{ sw / 4, sh - (sh / 4) }
     battleBase :: rl.Vector2{ sw / 4, sh - (sh / 3) }
     posn = rl.Vector2{-129, -129}
-    card_data, ok := get_card_data(id, state)
-    if ok {
-        val, exists := card_data.field_map[Field.Zone]
-        if exists {
-            #partial switch Zone(val) {
-                case Zone.Hand: posn = handBase
-                case Zone.Stack: posn = stackBase
-                case Zone.Throne: posn = throneBase
-                case Zone.Barrack: posn = barrackBase
-                case Zone.Battlefield: posn = battleBase
-            }
+    val, exists := card.data.field_map[Field.Zone]
+    if exists {
+        #partial switch Zone(val) {
+            case Zone.Hand: posn = handBase
+            case Zone.Stack: posn = stackBase
+            case Zone.Throne: posn = throneBase
+            case Zone.Barrack: posn = barrackBase
+            case Zone.Battlefield: posn = battleBase
         }
-        val, exists = card_data.field_map[Field.Position]
-        if exists {
-            posn += rl.Vector2{260 * f32(val), 0}
-        }
-        val, exists = card_data.field_map[Field.Owner]
-        if exists {
-            if val != player_id {
-                posn.y = f32(screenHeight) - posn.y
-            }
+    }
+    val, exists = card.data.field_map[Field.Position]
+    if exists {
+        posn += rl.Vector2{260 * max(0, f32(val - 1)), 0}
+    }
+    val, exists = card.data.field_map[Field.Owner]
+    if exists {
+        if val != player_id {
+            posn.y = f32(screenHeight) - posn.y
         }
     }
     return posn

@@ -67,6 +67,9 @@ main :: proc() {
         }
         delete(cards_txtrs)
     }
+    extras_txtr := rl.LoadTexture("build/assets/extras.png")
+    append(&cards_txtrs, extras_txtr)
+
     base_txtr := rl.LoadTexture("build/assets/base.png")
     append(&cards_txtrs, base_txtr)
 
@@ -79,7 +82,7 @@ main :: proc() {
     state.update_info = UpdateInfo{}
     game := &state.update_info.game
 
-    state.draw_info = DrawInfo{ cards_txtrs, buttons_txtr, &game.card_state}
+    state.draw_info = DrawInfo{ cards_txtrs, buttons_txtr, &game.cards}
 
     ok_button := Button{rl.Rectangle{f32(screenWidth) - 256,
                                      f32(screenHeight) - 71,
@@ -120,6 +123,8 @@ main :: proc() {
         in_msg, recvd = check_mailbox(mailbox).?
         if recvd {
             reload_game_ctx(&in_msg, game)
+            fmt.print("received: ")
+            fmt.println(in_msg)
         }
 
         // Update

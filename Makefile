@@ -7,19 +7,19 @@ ODINCFLAGS=-file -out:build/gremoire
 
 ODIR=build/
 
+ASSETS=$(wildcard assets/*.png)
+
 run: build
 	$(ODIN) run . $(ODINCFLAGS)
 
-build: assets
+build: build/assets
 	$(ODIN) build . $(ODINCFLAGS)
-	
-assets: assets.zip
-	unzip -qo -d build/assets assets.zip
 
-reload-assets:
-	rm assets.zip
-	cd assets
-	zip ../assets.zip *.png
+build/assets: assets.zip
+	unzip -qo -d build assets.zip
+
+assets.zip: $(ASSETS)
+	zip -qr assets.zip assets/
 
 debug: ODINCFLAGS += -define:DEBUG=true
 debug: build
@@ -28,6 +28,6 @@ debug-run: ODINCFLAGS += -define:DEBUG=true
 debug-run: run
 
 clean:
-	rm -rf build/*
+	rm -rf build/* assets.zip
 
 .PHONY: build clean

@@ -39,13 +39,13 @@ get_field :: proc(field: Field, default: u8, card_data: CardData) -> u8 {
     return default
 }
 
-get_card_data :: proc(id: CardID, state: [dynamic]CardData) -> (CardData, bool) {
-    for card_data in state {
-        if card_data.id == id {
-            return card_data, true
+get_card :: proc(id: CardID, state: [dynamic]Card) -> (CardData, bool) {
+    for card in state {
+        if card.id == id {
+            return card.data, true
         }
     }
-    return CardData{}, false
+    return Card{}.data, false
 }
 
 // A CardHead is used to visually denote the order of a cards ability when
@@ -65,7 +65,6 @@ GameContext :: struct {
     cur_cmd: GameCmd,
     cmd_active: bool,
 
-    card_state: [dynamic]CardData,
     cards: [dynamic]Card,
 
     order_ctx: OrderContext,
@@ -107,21 +106,38 @@ reload_game_cmd :: proc(msg : ^Message, game_ctx : ^GameContext) {
     return
 }
 
-reload_cards :: proc(game_ctx: ^GameContext, card_ids: ^[dynamic]CardID) {
+reload_cards :: proc(game_ctx: ^GameContext, state: [dynamic]CardData) {
     new_cards: [dynamic]Card
     defer delete(new_cards)
 
-    for card in game_ctx.cards {
-        cur_id := card.id
-        index, found := s.linear_search(card_ids[:], cur_id)
-        if found {
-            unordered_remove(card_ids, index)
+    num_cards := len(game_ctx.cards)
+    card_ids := make([dynamic]CardID, num_cards, num_cards)
+    defer delete(card_ids)
+
+    for card, i in game_ctx.cards[:] {
+        card_ids[i] = card.id
+    }
+
+    for card_data in state {
+        cur_id := card_data.id
+        if cur_id != 0 {
+            index, found := s.linear_search(card_ids[:], cur_id)
+            card : Card
+            if found {
+                // If found, then 'update' the card rather than create a new one
+                card = game_ctx.cards[index]
+            }
+            card.data = card_data
+            card.id = card.data.id
             append(&new_cards, card)
+        } else {
+            if is_card_visible(card_data) {
+                append(&new_cards, Card{card_data.id, rl.Vector2{0,0}, 1,
+                                        rl.Vector2{0, 0}, card_data})
+            }
         }
     }
-    for card_id in card_ids {
-        append(&new_cards, Card{card_id, rl.Vector2{0,0}, 1, rl.Vector2{0, 0}})
-    }
+
     clear(&game_ctx.cards)
     for card in new_cards {
         append(&game_ctx.cards, card)
@@ -145,10 +161,8 @@ reload_display :: proc(msg : ^Message, game_ctx: ^GameContext) {
     abilityID: AbilityID
     statementID: StatementID
 
-    card_ids: [dynamic]CardID
-    defer delete(card_ids)
-
-    clear(&game_ctx.card_state)
+    state : [dynamic]CardData
+    defer delete(state)
     for buf_idx < size {
         cur_card: CardData
 
@@ -194,13 +208,10 @@ reload_display :: proc(msg : ^Message, game_ctx: ^GameContext) {
             cur_card.abilities[abilityID] = statementID
         }
 
-        if is_card_visible(cur_card) {
-            append(&card_ids, cur_card.id)
-        }
-        append(&game_ctx.card_state, cur_card)
+        append(&state, cur_card)
     }
 
-    reload_cards(game_ctx, &card_ids)
+    reload_cards(game_ctx, state)
     return
 }
 
@@ -208,7 +219,7 @@ reload_display :: proc(msg : ^Message, game_ctx: ^GameContext) {
 // you can see the front side of the card. It may have a CardID of 0 and hence
 // be just the backside
 is_card_visible :: proc(cur_card: CardData) -> bool {
-    zone := Zone(get_field(Field.Zone, 0, cur_card))
+    zone := Zone(get_field(Field.Zone, 1, cur_card))
     if !(zone == Zone.TopDeck || zone == Zone.MidDeck || zone == Zone.BotDeck) {
         return true
     }

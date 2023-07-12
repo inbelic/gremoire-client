@@ -3,7 +3,6 @@ package client
 // Package to communicate with the erlang client_srvr and haskell game server
 // requests. Incoming and messages follow the format as described in format.doc
 
-import fmt "core:fmt" // FIXME: temp and all uses
 import net "core:net"
 import thread "core:thread"
 import sync "core:sync"
