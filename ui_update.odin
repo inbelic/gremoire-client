@@ -102,35 +102,35 @@ fill_info :: proc(info: ^UpdateInfo) {
 
 // Determine the (resting) destination of a card based on its zone
 get_zone_dest :: proc(state: [dynamic]CardData, id: CardID, player_id: u8) -> (posn: rl.Vector2) {
-    handBase :: rl.Vector2{ f32(screenWidth) / 4, f32(screenHeight) - 135 }
-    stackBase :: rl.Vector2{ f32(screenWidth) / 4, f32(screenHeight) - 135 }
-    throneBase :: rl.Vector2{ 128, f32(screenHeight) - 128 }
-    barrackBase :: rl.Vector2{ f32(screenWidth) / 4, f32(screenHeight) / 4 }
-    battleBase :: rl.Vector2{ f32(screenWidth) / 4, f32(screenHeight) / 2 }
+    sw :: f32(screenWidth)
+    sh :: f32(screenHeight)
+    handBase :: rl.Vector2{ sw / 4, sh - 135 }
+    stackBase :: rl.Vector2{ sw / 4, sh - 390 }
+    throneBase :: rl.Vector2{ 128, sh - 128 }
+    barrackBase :: rl.Vector2{ sw / 4, sh - (sh / 4) }
+    battleBase :: rl.Vector2{ sw / 4, sh - (sh / 3) }
     posn = rl.Vector2{-129, -129}
-    for card_data in state {
-        if card_data.id == id {
-            zone, zone_exists := card_data.field_map[Field.Zone]
-            if zone_exists {
-                #partial switch Zone(zone) {
-                    case Zone.Hand: posn = handBase
-                    case Zone.Stack: posn = stackBase
-                    case Zone.Throne: posn = throneBase
-                    case Zone.Barrack: posn = barrackBase
-                    case Zone.Battlefield: posn = battleBase
-                }
+    card_data, ok := get_card_data(id, state)
+    if ok {
+        val, exists := card_data.field_map[Field.Zone]
+        if exists {
+            #partial switch Zone(val) {
+                case Zone.Hand: posn = handBase
+                case Zone.Stack: posn = stackBase
+                case Zone.Throne: posn = throneBase
+                case Zone.Barrack: posn = barrackBase
+                case Zone.Battlefield: posn = battleBase
             }
-            zone_posn, zone_posn_exists := card_data.field_map[Field.Position]
-            if zone_posn_exists {
-                posn += rl.Vector2{260 * f32(zone_posn), 0}
+        }
+        val, exists = card_data.field_map[Field.Position]
+        if exists {
+            posn += rl.Vector2{260 * f32(val), 0}
+        }
+        val, exists = card_data.field_map[Field.Owner]
+        if exists {
+            if val != player_id {
+                posn.y = f32(screenHeight) - posn.y
             }
-            owner, owner_exists := card_data.field_map[Field.Owner]
-            if owner_exists {
-                if owner != player_id {
-                    posn.y = f32(screenHeight) - posn.y
-                }
-            }
-            break
         }
     }
     return posn
